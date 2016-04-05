@@ -21,17 +21,18 @@ const int LOWER_GRISM_POSITION_FINE = A6;
 const int LOWER_GRISM_DIRECTION = 32;
 const int COLLIMATOR_PULSE = 34;
 const int COLLIMATOR_POSITION = A2;
+const int INTERNAL_LAMP = 35;
 const int COLLIMATOR_DIRECTION = 36;
 const int SHUTTER = 37;
 const int HALOGEN_1 = 38;
 const int MIRROR = 39;
 const int FE_A = 40;
-const int STEADY_COMPONENTS[] = {SHUTTER, HALOGEN_1, FE_A, MIRROR};
-const int NUM_STEADY_COMPONENTS = 4;
+const int STEADY_COMPONENTS[] = {SHUTTER, HALOGEN_1, FE_A, MIRROR, INTERNAL_LAMP};
+const int NUM_STEADY_COMPONENTS = sizeof(STEADY_COMPONENTS)/sizeof(STEADY_COMPONENTS[0]);
 const int UNDULATING_COMPONENTS[] = {APERTURE_PULSE, APERTURE_DIRECTION, UPPER_GRISM_PULSE, UPPER_GRISM_DIRECTION, LOWER_GRISM_PULSE, LOWER_GRISM_DIRECTION, COLLIMATOR_PULSE, COLLIMATOR_DIRECTION};
-const int NUM_UNDULATING_COMPONENTS = 8;
+const int NUM_UNDULATING_COMPONENTS = sizeof(UNDULATING_COMPONENTS)/sizeof(UNDULATING_COMPONENTS[0]);
 const int INPUT_COMPONENTS[] = {APERTURE_POSITION_COARSE, UPPER_GRISM_POSITION_COARSE, LOWER_GRISM_POSITION_COARSE, COLLIMATOR_POSITION, APERTURE_POSITION_FINE, UPPER_GRISM_POSITION_FINE, LOWER_GRISM_POSITION_FINE};
-const int NUM_INPUT_COMPONENTS = 7;
+const int NUM_INPUT_COMPONENTS = sizeof(INPUT_COMPONENTS)/sizeof(INPUT_COMPONENTS[0]);
 
 int CRIT_COUNT_UPPER_GRISM[] = {925, 1240, 1449, 1643, 1843, 2102, 2317, 2516, 2698, 2907};
 //int CRIT_COUNT_APERTURE[] = {1379,1773,2061,2428,2688,3093,3460,3703,4187,4570}; //original of matt
@@ -63,6 +64,21 @@ unsigned long currentRep = 0;
 boolean crit1, crit2, crit3, crit4;
 long critCounter, backCounter;
 
+void startProcessing() 
+{
+  inProcess = true;
+  // turn internal lamp ON
+  digitalWrite(INTERNAL_LAMP, HIGH);
+  Serial.println("Turned ON internal lamp");
+}
+
+void endProcessing() 
+{
+  inProcess = false;
+  // turn internal lamp OFF
+  digitalWrite(INTERNAL_LAMP, LOW);
+  Serial.println("Turned OFF internal lamp");
+}
 
 void setup()
 {
@@ -70,6 +86,7 @@ void setup()
   setAllPinModes();
   Serial.println("SETUP COMPLETE");
 }
+
 void loop()
 {
   currentMicros = micros();
@@ -85,12 +102,12 @@ void loop()
     else if (command == "set")
       setPin(args);
     else if (command == "q")
-      endProcess();
+      manuallyEndProcess();
     else if (command == "move_steps")
       moveStepsInit(args);
     /*if(component == "aperture"){
       Serial.println("DON'T DO THAT");
-      endProcess();
+      manuallyEndProcess();
       }*/
   }
   else if (inProcess) {
@@ -130,7 +147,8 @@ void runPaw() {
         if (stepsToDo == 0) {
           crit2 = true;
           //Serial.println("Moved to position");
-          inProcess = false;
+          endProcessing();
+          // inProcess = false;
           Serial.println("finished,move_steps,collimator");
         }
         stepsToDo -= 1;
@@ -155,7 +173,8 @@ void runPaw() {
       else if (!crit2) {
         if (currentRep == abs(stepsToDo)) {
           crit2 = true;
-          inProcess = 0;
+          endProcessing();
+          // inProcess = 0;
           if (component == "upper_grism")
             LAST_MOVED_UPPER_GRISM = stepsToDo;
           if (component == "lower_grism")
@@ -202,7 +221,8 @@ void runPaw() {
           }
           else {
             if (!dir) {
-              inProcess = 0;
+              endProcessing();
+              // inProcess = 0;
               reportPosition(critCounter);
               critCounter = 0;
             }
@@ -215,7 +235,8 @@ void runPaw() {
         else {
           backCounter ++;
           if (backCounter >= 500 && currentInterruptState == 0) {
-            inProcess = 0;
+            endProcessing();
+            // inProcess = 0;
             reportPosition(critCounter);
             //Serial.println(critCounter);
             //Serial.println(command);
@@ -272,7 +293,8 @@ boolean moveStepsInit(String args) {
 
   lastOpMicros = currentMicros;
   lastOp = 0;
-  inProcess = true;
+  startProcessing();
+  // inProcess = true;
 
   Serial.println("received,move_steps," + component);
   return true;
@@ -294,7 +316,8 @@ boolean moveInit(String args) {
 
   // String output = "Move COMPONENT:"+component+" WAIT:"+String(wait)+" STEPS:"+String(stepsToDo)+" INTERRUPT_PIN:"+String(interruptPin)+" DIRECTION:"+String(dir)+" DIRECTION_PIN:"+String(directionPin);
   String output = "received,move," + component;
-  inProcess = true;
+  startProcessing();
+  // inProcess = true;
   currentRep = 0;
   stepsDone = 0;
   Serial.println(output);
@@ -425,10 +448,12 @@ void serialEvent() {
     }
   }
 }
-void endProcess() {
+
+void manuallyEndProcess() {
   Serial.println("Manually ended process");
   digitalWrite(directionPin, LOW);
-  inProcess = 0;
+  endProcessing();
+  // inProcess = 0;
 }
 
 boolean getComponentSettings(String comp)
