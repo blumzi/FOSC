@@ -21,13 +21,13 @@ const int LOWER_GRISM_POSITION_FINE = A6;
 const int LOWER_GRISM_DIRECTION = 32;
 const int COLLIMATOR_PULSE = 34;
 const int COLLIMATOR_POSITION = A2;
-const int INTERNAL_LAMP = 35;
+const int InternalLampPin = 35;
 const int COLLIMATOR_DIRECTION = 36;
-const int SHUTTER = 37;
-const int HALOGEN_1 = 38;
-const int MIRROR = 39;
-const int FE_A = 40;
-const int STEADY_COMPONENTS[] = {SHUTTER, HALOGEN_1, FE_A, MIRROR, INTERNAL_LAMP};
+const int ShutterPin = 37;
+const int HalogenPin = 38;
+const int MirrorPin = 39;
+const int HeArPin = 40;
+const int STEADY_COMPONENTS[] = {ShutterPin, HalogenPin, HeArPin, MirrorPin, InternalLampPin};
 const int NUM_STEADY_COMPONENTS = sizeof(STEADY_COMPONENTS)/sizeof(STEADY_COMPONENTS[0]);
 const int UNDULATING_COMPONENTS[] = {APERTURE_PULSE, APERTURE_DIRECTION, UPPER_GRISM_PULSE, UPPER_GRISM_DIRECTION, LOWER_GRISM_PULSE, LOWER_GRISM_DIRECTION, COLLIMATOR_PULSE, COLLIMATOR_DIRECTION};
 const int NUM_UNDULATING_COMPONENTS = sizeof(UNDULATING_COMPONENTS)/sizeof(UNDULATING_COMPONENTS[0]);
@@ -55,6 +55,7 @@ int directionPin = 0;
 int pulsePin = 0;
 int steadyPin = 0;
 boolean hasPassedInterrupt = false;
+const boolean On = true, Off = false;
 
 boolean inProcess = false;
 unsigned long currentMicros = 0;
@@ -64,20 +65,22 @@ unsigned long currentRep = 0;
 boolean crit1, crit2, crit3, crit4;
 long critCounter, backCounter;
 
+void turnLamp(bool onoff) 
+{
+  digitalWrite(InternalLampPin, (onoff == On) ? LOW : HIGH);
+  Serial.print("Turned internal lamp ");
+  Serial.println((onoff == On) ? "ON" : "OFF");
+}
 void startProcessing() 
 {
   inProcess = true;
-  // turn internal lamp ON
-  digitalWrite(INTERNAL_LAMP, HIGH);
-  Serial.println("Turned ON internal lamp");
+  turnLamp(On);
 }
 
 void endProcessing() 
 {
   inProcess = false;
-  // turn internal lamp OFF
-  digitalWrite(INTERNAL_LAMP, LOW);
-  Serial.println("Turned OFF internal lamp");
+  turnLamp(Off);
 }
 
 void setup()
@@ -85,6 +88,7 @@ void setup()
   Serial.begin(9600);
   setAllPinModes();
   Serial.println("SETUP COMPLETE");
+  turnLamp(Off);
 }
 
 void loop()
@@ -363,13 +367,13 @@ boolean setPin(String args) {
       //Serial.println("CHANGE TO: "+String(changeTo));
       int steadyPin;
       if (component == "shutter")
-        steadyPin = SHUTTER;
+        steadyPin = ShutterPin;
       else if (component == "halogen_1")
-        steadyPin = HALOGEN_1;
+        steadyPin = HalogenPin;
       else if (component == "fe_a")
-        steadyPin = FE_A;
+        steadyPin = HeArPin;
       else if (component == "mirror")
-        steadyPin = MIRROR;
+        steadyPin = MirrorPin;
       Serial.println("set," + component + "," + String(changeTo));
       digitalWrite(steadyPin, changeTo);
     }
